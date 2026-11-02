@@ -50,7 +50,7 @@ def run_facefusion(source: Path, target: Path, output: Path, face_selector_mode:
     result = subprocess.run(
         command,
         cwd=FACEFUSION_DIRECTORY,
-        capture_output=True,
+        #capture_output=True,
         text=True,
         timeout=FACEFUSION_TIMEOUT,
         env=build_facefusion_env(),
