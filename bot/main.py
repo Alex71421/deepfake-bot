@@ -1,11 +1,12 @@
 import asyncio
-from bot.settings import BOT_TOKEN
+from bot.settings import BOT_TOKEN, ALLOWED_USER_IDS
 
-from aiogram import Router, Bot, Dispatcher
+from aiogram import Router, Bot, Dispatcher, F
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
 router = Router()
+router.message.filter(F.from_user.id.in_(ALLOWED_USER_IDS))
 
 
 @router.message(CommandStart())
