@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 import os
 from pathlib import Path
@@ -10,13 +11,14 @@ FACEFUSION_ENV_DIR = FACEFUSION_PYTHON.parent
 FACEFUSION_TIMEOUT = 30 * 60
 
 
-def run_facefusion(source: Path, target: Path, output: Path) -> None:
+def run_facefusion(source: Path, target: Path, output: Path, face_selector_mode: str = "many") -> None:
     """Заменяет лицо в видео с помощью FaceFusion.
 
     Args:
         source: путь к фото с лицом для замены
         target: путь к обрабатываемому видео
         output: путь куда будет сохранен результат
+        face_selector_mode: режим сколько лиц будет заменено на видео
 
     Raises:
         FileNotFoundError: Если source или target не существуют
@@ -39,7 +41,7 @@ def run_facefusion(source: Path, target: Path, output: Path) -> None:
         "--processors", "face_swapper", "face_enhancer",
         "--face-detector-score", "0.7",
         "--execution-providers", "cuda",
-        "--face-selector-mode", "many",
+        "--face-selector-mode", face_selector_mode,
         "--reference-face-distance", "0.5",
         "--output-video-quality", "70",
         "--output-audio-encoder", "aac",
@@ -82,6 +84,15 @@ def build_facefusion_env() -> dict[str, str]:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--mode",
+        choices=["many", "one", "reference"],
+        default="many",
+        help="режим сколько лиц будет заменено на видео",
+    )
+    args = parser.parse_args()
+
     output_path = get_output_name(OUTPUT_DIR)
-    run_facefusion(INPUT_DIR / "photo.jpg", INPUT_DIR / "video.mp4", output_path)
+    run_facefusion(INPUT_DIR / "photo.jpg", INPUT_DIR / "video.mp4", output_path, face_selector_mode=args.mode)
     print(f"Результат сохранен в {OUTPUT_DIR} под именем {output_path.name}")
