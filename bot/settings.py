@@ -1,4 +1,6 @@
 import os
+from uuid import MAX
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,3 +14,5 @@ if not raw_ids:
     raise RuntimeError("ALLOWED_USER_IDS пустой в .env")
 
 ALLOWED_USER_IDS = set(int(user_id) for user_id in raw_ids.split(",") if user_id != "")
+MAX_VIDEO_SIZE = 100 * 1024 * 1024
+MAX_VIDEO_DURATION = 60
