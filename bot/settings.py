@@ -1,5 +1,4 @@
 import os
-from uuid import MAX
 
 from dotenv import load_dotenv
 
