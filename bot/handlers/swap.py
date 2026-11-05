@@ -4,14 +4,17 @@ from aiogram import F, Router, Bot
 from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, BufferedInputFile
 
-from bot.jobs import create_job_dir, download_inputs
+from bot.jobs import create_job_dir, download_inputs, OUTPUT_FILENAME
 from bot.keyboards import build_mode_keyboard, build_confirm_keyboard, MODE_LABELS
 from bot.settings import MAX_VIDEO_DURATION, MAX_VIDEO_SIZE
 from bot.states import SwapForm
+from worker.swap import run_facefusion
 
 router = Router()
+
+FILE_UPLOAD_TIMEOUT = 5 * 60
 
 
 @router.message(Command("new"))
@@ -89,16 +92,41 @@ async def confirm_handler(callback: CallbackQuery, state: FSMContext, bot: Bot) 
         new_job_path = create_job_dir()
 
         try:
-            photo_path, video_path = await download_inputs(bot, new_job_path, data["photo_file_id"], data["video_file_id"])
-        except (TelegramAPIError, TimeoutError) as e:
-            await callback.message.edit_text("Не удалось скачать файлы. Попробуй ещё раз: /new")
+            try:
+                source_path, video_path = await download_inputs(bot, new_job_path, data["photo_file_id"], data["video_file_id"])
+            except (TelegramAPIError, TimeoutError) as e:
+                await callback.message.edit_text("Не удалось скачать файлы. Попробуй ещё раз: /new")
+                print(e)
+                return
+
+            output_path = new_job_path / OUTPUT_FILENAME
+            await callback.message.edit_text("Обрабатываю видео, это займёт пару минут...")
+
+            try:
+                await run_facefusion(source_path, video_path, output_path, face_selector_mode=data["mode"])
+            except (FileNotFoundError, RuntimeError) as e:
+                print(e)
+                await callback.message.edit_text("Не удалось обработать видео. Попробуй ещё раз: /new")
+                return
+
+            await callback.message.edit_text("Отправляю видео в чат...")
+
+            try:
+                await bot.send_video(
+                    callback.message.chat.id,
+                    BufferedInputFile(output_path.read_bytes(), filename="result.mp4"),
+                    request_timeout=FILE_UPLOAD_TIMEOUT,
+                )
+
+            except TelegramAPIError as e:
+                print(e)
+                await callback.message.edit_text("Не удалось отправить результат")
+                return
+
+            await callback.message.edit_text("Готово!")
+
+        finally:
             shutil.rmtree(new_job_path, ignore_errors=True)
-            print(e)
-            return
-
-        await callback.message.edit_text("Файлы скачаны")
-        print(photo_path, video_path, sep='\n')
-
     else:
         await callback.message.edit_text("Отменено")
 

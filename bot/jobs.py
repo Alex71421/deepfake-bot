@@ -8,6 +8,7 @@ from bot.settings import JOBS_DIR
 
 SOURCE_FILENAME = "source.jpg"
 TARGET_FILENAME = "target.mp4"
+OUTPUT_FILENAME = "result.mp4"
 
 
 def create_job_dir() -> Path:
