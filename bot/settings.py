@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -15,3 +16,5 @@ if not raw_ids:
 ALLOWED_USER_IDS = set(int(user_id) for user_id in raw_ids.split(",") if user_id != "")
 MAX_VIDEO_SIZE = 100 * 1024 * 1024
 MAX_VIDEO_DURATION = 60
+BASE_DIR = Path(__file__).resolve().parent.parent
+JOBS_DIR = BASE_DIR / "data" / "jobs"

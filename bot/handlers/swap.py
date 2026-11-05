@@ -1,8 +1,12 @@
-from aiogram import F, Router
+import shutil
+
+from aiogram import F, Router, Bot
+from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
+from bot.jobs import create_job_dir, download_inputs
 from bot.keyboards import build_mode_keyboard, build_confirm_keyboard, MODE_LABELS
 from bot.settings import MAX_VIDEO_DURATION, MAX_VIDEO_SIZE
 from bot.states import SwapForm
@@ -72,17 +76,31 @@ async def wrong_mode_handler(message: Message) -> None:
 
 
 @router.callback_query(SwapForm.waiting_confirm, F.data.startswith("confirm:"))
-async def confirm_handler(callback: CallbackQuery, state: FSMContext) -> None:
+async def confirm_handler(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     """Получает подтверждение на создание дипфейка или отказ"""
     create_deepfake = callback.data.split(":")[1] == "create"
+    await callback.answer()
+
+    data = await state.get_data()
+    await state.clear()
+
     if create_deepfake:
-        data = await state.get_data()
-        await callback.message.edit_text("Задача принята")
-        print(data)
+        await callback.message.edit_text("Скачиваю файлы...")
+        new_job_path = create_job_dir()
+
+        try:
+            photo_path, video_path = await download_inputs(bot, new_job_path, data["photo_file_id"], data["video_file_id"])
+        except (TelegramAPIError, TimeoutError) as e:
+            await callback.message.edit_text("Не удалось скачать файлы. Попробуй ещё раз: /new")
+            shutil.rmtree(new_job_path, ignore_errors=True)
+            print(e)
+            return
+
+        await callback.message.edit_text("Файлы скачаны")
+        print(photo_path, video_path, sep='\n')
+
     else:
         await callback.message.edit_text("Отменено")
-    await state.clear()
-    await callback.answer()
 
 
 @router.message(SwapForm.waiting_confirm)
