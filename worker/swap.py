@@ -22,7 +22,7 @@ async def run_facefusion(source: Path, target: Path, output: Path, face_selector
 
     Raises:
         FileNotFoundError: Если source или target не существуют
-        RuntimeError: Если FaceFusion завершился с ошибкой
+        RuntimeError: Если FaceFusion завершился с ошибкой или превысил допустимое время
     """
     if not source.is_file():
         raise FileNotFoundError(f"файл не найден: {source}")
@@ -54,7 +54,13 @@ async def run_facefusion(source: Path, target: Path, output: Path, face_selector
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await process.communicate()
+
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=FACEFUSION_TIMEOUT)
+    except TimeoutError:
+        process.kill()
+        await process.wait()
+        raise RuntimeError(f"FaceFusion не уложился в {FACEFUSION_TIMEOUT // 60} минут") from None
 
     if process.returncode != 0:
         raise RuntimeError(f"FaceFusion завершился с кодом {process.returncode}: "
