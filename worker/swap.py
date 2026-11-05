@@ -1,5 +1,5 @@
 import argparse
-import subprocess
+import asyncio
 import os
 from pathlib import Path
 
@@ -11,7 +11,7 @@ FACEFUSION_ENV_DIR = FACEFUSION_PYTHON.parent
 FACEFUSION_TIMEOUT = 30 * 60
 
 
-def run_facefusion(source: Path, target: Path, output: Path, face_selector_mode: str = "many") -> None:
+async def run_facefusion(source: Path, target: Path, output: Path, face_selector_mode: str = "many") -> None:
     """Заменяет лицо в видео с помощью FaceFusion.
 
     Args:
@@ -47,17 +47,18 @@ def run_facefusion(source: Path, target: Path, output: Path, face_selector_mode:
         "--output-audio-encoder", "aac",
     ]
 
-    result = subprocess.run(
-        command,
+    process = await asyncio.create_subprocess_exec(
+        *command,
         cwd=FACEFUSION_DIRECTORY,
-        #capture_output=True,
-        text=True,
-        timeout=FACEFUSION_TIMEOUT,
         env=build_facefusion_env(),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
+    stdout, stderr = await process.communicate()
 
-    if result.returncode != 0:
-        raise RuntimeError(f"FaceFusion завершился с кодом {result.returncode}: {result.stderr or result.stdout}")
+    if process.returncode != 0:
+        raise RuntimeError(f"FaceFusion завершился с кодом {process.returncode}: "
+                           f"{stderr.decode(errors='replace') or stdout.decode(errors='replace')}")
 
 
 def get_output_name(folder: Path) -> Path:
@@ -94,5 +95,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     output_path = get_output_name(OUTPUT_DIR)
-    run_facefusion(INPUT_DIR / "photo.jpg", INPUT_DIR / "video.mp4", output_path, face_selector_mode=args.mode)
+    asyncio.run(run_facefusion(INPUT_DIR / "photo.jpg", INPUT_DIR / "video.mp4", output_path, face_selector_mode=args.mode))
     print(f"Результат сохранен в {OUTPUT_DIR} под именем {output_path.name}")
