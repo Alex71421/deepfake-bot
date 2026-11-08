@@ -1,6 +1,8 @@
 import argparse
 import asyncio
 import os
+import re
+from collections import deque
 from pathlib import Path
 
 FACEFUSION_DIRECTORY = Path(r"D:\PythonProjects\facefusion")
@@ -52,19 +54,22 @@ async def run_facefusion(source: Path, target: Path, output: Path, face_selector
         cwd=FACEFUSION_DIRECTORY,
         env=build_facefusion_env(),
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
     )
 
     try:
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=FACEFUSION_TIMEOUT)
+        output_tail = await asyncio.wait_for(read_output(process.stdout), timeout=FACEFUSION_TIMEOUT)
     except TimeoutError:
         process.kill()
-        await process.wait()
         raise RuntimeError(f"FaceFusion не уложился в {FACEFUSION_TIMEOUT // 60} минут") from None
+    except asyncio.CancelledError:
+        process.kill()
+        raise
+    finally:
+        await process.wait()
 
     if process.returncode != 0:
-        raise RuntimeError(f"FaceFusion завершился с кодом {process.returncode}: "
-                           f"{stderr.decode(errors='replace') or stdout.decode(errors='replace')}")
+        raise RuntimeError(f"FaceFusion завершился с кодом {process.returncode}: {output_tail}")
 
 
 def get_output_name(folder: Path) -> Path:
@@ -88,6 +93,47 @@ def build_facefusion_env() -> dict[str, str]:
 
     env["PATH"] = facefusion_paths + os.pathsep + env["PATH"]
     return env
+
+
+async def read_output(stream: asyncio.StreamReader) -> str:
+    """Выводит данные потока и возвращает последние 20 строк"""
+    buffer = ""
+    last_progress = None
+    tail = deque(maxlen=20)
+    while True:
+        chunk = await stream.read(1024)
+        if not chunk:
+            break
+        buffer += chunk.decode(errors="replace")
+        parts = re.split(r"[\r\n]", buffer)
+        buffer = parts.pop()
+
+        for part in parts:
+            part_data = parse_progress(part)
+            if part_data:
+                if last_progress != part_data:
+                    print(part_data[0], part_data[1])
+                    last_progress = part_data
+            elif part:
+                tail.append(part)
+                print(part)
+    if buffer:
+        part_data = parse_progress(buffer)
+        if part_data:
+            print(part_data[0], part_data[1])
+        else:
+            tail.append(buffer)
+            print(buffer)
+
+    return "\n".join(tail)
+
+
+def parse_progress(line: str) -> tuple[str, int] | None:
+    """Парсит строку из потока facefusion и возвращает название процесса и %выполнения"""
+    match = re.search(r"(\w+):\s+(\d+)%", line)
+    if match:
+        return match.group(1), int(match.group(2))
+    return None
 
 
 if __name__ == "__main__":

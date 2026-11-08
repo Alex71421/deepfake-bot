@@ -2,6 +2,7 @@ import asyncio
 
 from aiogram import Bot, Dispatcher, F
 
+from bot.jobs import clean_jobs_dir
 from bot.settings import BOT_TOKEN, ALLOWED_USER_IDS
 from bot.handlers.common import router as common_router
 from bot.handlers.swap import router as swap_router
@@ -18,4 +19,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    clean_jobs_dir()
     asyncio.run(main())
