@@ -13,7 +13,7 @@ FACEFUSION_ENV_DIR = FACEFUSION_PYTHON.parent
 FACEFUSION_TIMEOUT = 30 * 60
 
 
-async def run_facefusion(source: Path, target: Path, output: Path, face_selector_mode: str = "many") -> None:
+async def run_facefusion(source: Path, target: Path, output: Path, face_selector_mode: str = "many", on_progress=None) -> None:
     """Заменяет лицо в видео с помощью FaceFusion.
 
     Args:
@@ -21,6 +21,7 @@ async def run_facefusion(source: Path, target: Path, output: Path, face_selector
         target: путь к обрабатываемому видео
         output: путь куда будет сохранен результат
         face_selector_mode: режим сколько лиц будет заменено на видео
+        on_progress: функция для вывода прогресса обработки
 
     Raises:
         FileNotFoundError: Если source или target не существуют
@@ -58,7 +59,7 @@ async def run_facefusion(source: Path, target: Path, output: Path, face_selector
     )
 
     try:
-        output_tail = await asyncio.wait_for(read_output(process.stdout), timeout=FACEFUSION_TIMEOUT)
+        output_tail = await asyncio.wait_for(read_output(process.stdout, on_progress), timeout=FACEFUSION_TIMEOUT)
     except TimeoutError:
         process.kill()
         raise RuntimeError(f"FaceFusion не уложился в {FACEFUSION_TIMEOUT // 60} минут") from None
@@ -95,7 +96,7 @@ def build_facefusion_env() -> dict[str, str]:
     return env
 
 
-async def read_output(stream: asyncio.StreamReader) -> str:
+async def read_output(stream: asyncio.StreamReader, on_progress=None) -> str:
     """Выводит данные потока и возвращает последние 20 строк"""
     buffer = ""
     last_progress = None
@@ -112,7 +113,8 @@ async def read_output(stream: asyncio.StreamReader) -> str:
             part_data = parse_progress(part)
             if part_data:
                 if last_progress != part_data:
-                    print(part_data[0], part_data[1])
+                    if on_progress is not None:
+                        await on_progress(part_data[0], part_data[1])
                     last_progress = part_data
             elif part:
                 tail.append(part)
@@ -120,7 +122,8 @@ async def read_output(stream: asyncio.StreamReader) -> str:
     if buffer:
         part_data = parse_progress(buffer)
         if part_data:
-            print(part_data[0], part_data[1])
+            if on_progress is not None:
+                await on_progress(part_data[0], part_data[1])
         else:
             tail.append(buffer)
             print(buffer)
@@ -136,6 +139,10 @@ def parse_progress(line: str) -> tuple[str, int] | None:
     return None
 
 
+async def print_progress(stage, percent) -> None:
+    print(stage, percent)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -147,5 +154,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     output_path = get_output_name(OUTPUT_DIR)
-    asyncio.run(run_facefusion(INPUT_DIR / "photo.jpg", INPUT_DIR / "video.mp4", output_path, face_selector_mode=args.mode))
+    asyncio.run(run_facefusion(INPUT_DIR / "photo.jpg", INPUT_DIR / "video.mp4", output_path,
+                               face_selector_mode=args.mode, on_progress=print_progress))
     print(f"Результат сохранен в {OUTPUT_DIR} под именем {output_path.name}")

@@ -1,4 +1,5 @@
 import shutil
+import time
 
 from aiogram import F, Router, Bot
 from aiogram.exceptions import TelegramAPIError
@@ -15,6 +16,7 @@ from worker.swap import run_facefusion
 router = Router()
 
 FILE_UPLOAD_TIMEOUT = 5 * 60
+UPDATE_PERCENT_TIME = 3
 
 
 @router.message(Command("new"))
@@ -93,7 +95,8 @@ async def confirm_handler(callback: CallbackQuery, state: FSMContext, bot: Bot) 
 
         try:
             try:
-                source_path, video_path = await download_inputs(bot, new_job_path, data["photo_file_id"], data["video_file_id"])
+                source_path, video_path = await download_inputs(bot, new_job_path, data["photo_file_id"],
+                                                                data["video_file_id"])
             except (TelegramAPIError, TimeoutError) as e:
                 await callback.message.edit_text("Не удалось скачать файлы. Попробуй ещё раз: /new")
                 print(e)
@@ -102,8 +105,24 @@ async def confirm_handler(callback: CallbackQuery, state: FSMContext, bot: Bot) 
             output_path = new_job_path / OUTPUT_FILENAME
             await callback.message.edit_text("Обрабатываю видео, это займёт пару минут...")
 
+            last_update = 0
+
+            async def update_progress(stage: str, percent: int) -> None:
+                """Редактирует сообщение относительно прогресса генерации"""
+                nonlocal last_update
+                if stage != "processing":
+                    return
+                if time.monotonic() - last_update < UPDATE_PERCENT_TIME:
+                    return
+                last_update = time.monotonic()
+                try:
+                    await callback.message.edit_text(f"Обрабатываю видео: {percent}%")
+                except TelegramAPIError:
+                    pass
+
             try:
-                await run_facefusion(source_path, video_path, output_path, face_selector_mode=data["mode"])
+                await run_facefusion(source_path, video_path, output_path, face_selector_mode=data["mode"],
+                                     on_progress=update_progress)
             except (FileNotFoundError, RuntimeError) as e:
                 print(e)
                 await callback.message.edit_text("Не удалось обработать видео. Попробуй ещё раз: /new")
