@@ -6,8 +6,9 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramNetworkError
 from aiogram.types import BufferedInputFile
 
-from bot.handlers.swap import update_message_text
+
 from bot.jobs import Job, create_job_dir, download_inputs, OUTPUT_FILENAME
+from bot.notifications import update_message_text
 from worker.swap import run_facefusion
 
 FILE_UPLOAD_TIMEOUT = 10 * 60
