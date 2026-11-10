@@ -1,11 +1,15 @@
 import asyncio
+from asyncio import Queue
 
 from aiogram import Bot, Dispatcher, F
 
 from bot.jobs import clean_jobs_dir
+from bot.queue_manager import process_queue
 from bot.settings import BOT_TOKEN, ALLOWED_USER_IDS
 from bot.handlers.common import router as common_router
 from bot.handlers.swap import router as swap_router
+
+
 
 
 async def main() -> None:
@@ -15,7 +19,11 @@ async def main() -> None:
     dp.callback_query.filter(F.from_user.id.in_(ALLOWED_USER_IDS))
     dp.include_router(common_router)
     dp.include_router(swap_router)
-    await dp.start_polling(bot)
+
+    queue = Queue()
+    worker_task = asyncio.create_task(process_queue(bot, queue))
+
+    await dp.start_polling(bot, queue=queue)
 
 
 if __name__ == "__main__":

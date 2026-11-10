@@ -1,16 +1,33 @@
 import shutil
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
-from shutil import rmtree
 
 from aiogram import Bot
 
 from bot.settings import JOBS_DIR
 
-
 SOURCE_FILENAME = "source.jpg"
 TARGET_FILENAME = "target.mp4"
 OUTPUT_FILENAME = "result.mp4"
+
+@dataclass
+class Job:
+    """Информация о задаче facefusion.
+
+        Attributes:
+            photo_file_id: ID файла фото в чате
+            video_file_id: ID файла видео в чате
+            mode: Режим замены лиц
+            chat_id: ID чата, куда нужно отправить видео
+            message_id: ID сообщения, текст которого нужно редактировать
+        """
+    photo_file_id: str
+    video_file_id: str
+    mode: str
+    chat_id: int
+    message_id: int
+
 
 
 def create_job_dir() -> Path:
