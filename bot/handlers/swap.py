@@ -87,11 +87,6 @@ async def confirm_handler(callback: CallbackQuery, state: FSMContext, bot: Bot, 
     """Получает подтверждение на создание дипфейка или отказ"""
     await callback.answer()
 
-    try:
-        await callback.message.delete()
-    except TelegramAPIError as e:
-        print(type(e).__name__, str(e))
-        return
     # queue.qsize() + 1 - чтобы избежать гонки сообщений, queue.put(job) вызывается после изменения сообщения
     try:
         new_message = await callback.message.answer(f"Задание добавлено в очередь. "
@@ -100,6 +95,12 @@ async def confirm_handler(callback: CallbackQuery, state: FSMContext, bot: Bot, 
     except TelegramAPIError as e:
         print(type(e).__name__, str(e))
         return
+
+    try:
+        await callback.message.delete()
+    except TelegramAPIError as e:
+        print(type(e).__name__, str(e))
+
 
     data = await state.get_data()
     await state.clear()
