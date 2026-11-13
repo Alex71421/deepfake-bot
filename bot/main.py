@@ -10,8 +10,6 @@ from bot.handlers.common import router as common_router
 from bot.handlers.swap import router as swap_router
 
 
-
-
 async def main() -> None:
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()

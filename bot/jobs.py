@@ -29,7 +29,6 @@ class Job:
     message_id: int
 
 
-
 def create_job_dir() -> Path:
     """Создает папку для дипфейка со случайным названием"""
     directory_name = uuid.uuid4().hex
