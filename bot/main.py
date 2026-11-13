@@ -21,9 +21,19 @@ async def main() -> None:
     queue = Queue()
     worker_task = asyncio.create_task(process_queue(bot, queue))
 
-    await dp.start_polling(bot, queue=queue)
+    try:
+        await dp.start_polling(bot, queue=queue)
+    finally:
+        try:
+            worker_task.cancel()
+            await worker_task
+        except asyncio.CancelledError:
+            pass
 
 
 if __name__ == "__main__":
     clean_jobs_dir()
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Бот остановлен.")

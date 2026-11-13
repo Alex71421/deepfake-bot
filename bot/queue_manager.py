@@ -29,10 +29,17 @@ async def process_queue(bot: Bot, queue: asyncio.Queue) -> None:
 
 
 async def process_job(bot: Bot, job: Job) -> None:
+    """Управляет процессом от взятия задачи в работу до выдачи результата"""
     new_job_path = create_job_dir()
 
     try:
-        await update_message_text(bot, job.chat_id, job.message_id, "Скачиваю файлы...")
+        try:
+            message = await bot.send_message(job.chat_id, "Скачиваю файлы...")
+            job.message_id = message.message_id
+        except TelegramAPIError as e:
+            print(type(e).__name__, str(e))
+            return
+
         try:
             source_path, video_path = await download_inputs(bot, new_job_path, job.photo_file_id,
                                                             job.video_file_id)

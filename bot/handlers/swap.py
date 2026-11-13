@@ -83,7 +83,7 @@ async def wrong_mode_handler(message: Message) -> None:
 
 
 @router.callback_query(SwapForm.waiting_confirm, F.data.startswith("confirm:"))
-async def confirm_handler(callback: CallbackQuery, state: FSMContext, bot: Bot, queue: asyncio.Queue) -> None:
+async def confirm_handler(callback: CallbackQuery, state: FSMContext, queue: asyncio.Queue) -> None:
     """Получает подтверждение на создание дипфейка или отказ"""
     await callback.answer()
 
@@ -100,7 +100,6 @@ async def confirm_handler(callback: CallbackQuery, state: FSMContext, bot: Bot, 
         await callback.message.delete()
     except TelegramAPIError as e:
         print(type(e).__name__, str(e))
-
 
     data = await state.get_data()
     await state.clear()
