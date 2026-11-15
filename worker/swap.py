@@ -76,7 +76,7 @@ async def run_facefusion(source: Path, target: Path, output: Path, face_selector
 
 
 def get_output_name(folder: Path) -> Path:
-    """Возвращает свободное имя файла в формате result_x.mp4"""
+    """Возвращает свободное имя файла в формате путь.../result_x.mp4"""
     file_number = 1
     while True:
         candidate = folder / f"result_{file_number}.mp4"
