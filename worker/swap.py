@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import logging
 import os
 import re
 from collections import deque
@@ -11,6 +12,7 @@ OUTPUT_DIR = Path(r"D:\PythonProjects\deepfake-bot\data\output")
 INPUT_DIR = Path(r"D:\PythonProjects\deepfake-bot\data\input")
 FACEFUSION_ENV_DIR = FACEFUSION_PYTHON.parent
 FACEFUSION_TIMEOUT = 30 * 60
+logger = logging.getLogger(__name__)
 
 
 async def run_facefusion(source: Path, target: Path, output: Path, face_selector_mode: str = "many", on_progress=None) -> None:
@@ -118,7 +120,7 @@ async def read_output(stream: asyncio.StreamReader, on_progress=None) -> str:
                     last_progress = part_data
             elif part:
                 tail.append(part)
-                print(part)
+                logger.debug(part)
     if buffer:
         part_data = parse_progress(buffer)
         if part_data:
@@ -126,7 +128,7 @@ async def read_output(stream: asyncio.StreamReader, on_progress=None) -> str:
                 await on_progress(part_data[0], part_data[1])
         else:
             tail.append(buffer)
-            print(buffer)
+            logger.debug(buffer)
 
     return "\n".join(tail)
 
@@ -140,7 +142,7 @@ def parse_progress(line: str) -> tuple[str, int] | None:
 
 
 async def print_progress(stage, percent) -> None:
-    print(stage, percent)
+    logger.debug("Генерация видео %s : %s", stage, percent)
 
 
 if __name__ == "__main__":
@@ -156,4 +158,4 @@ if __name__ == "__main__":
     output_path = get_output_name(OUTPUT_DIR)
     asyncio.run(run_facefusion(INPUT_DIR / "photo.jpg", INPUT_DIR / "video.mp4", output_path,
                                face_selector_mode=args.mode, on_progress=print_progress))
-    print(f"Результат сохранен в {OUTPUT_DIR} под именем {output_path.name}")
+    logger.info(f"Результат сохранен в {OUTPUT_DIR} под именем {output_path.name}")

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from asyncio import Queue
 
 from aiogram import Bot, Dispatcher, F
@@ -32,8 +33,14 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+    logger = logging.getLogger(__name__)
+
     clean_jobs_dir()
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("Бот остановлен.")
+        logger.info("Бот остановлен.")

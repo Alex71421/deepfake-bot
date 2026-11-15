@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from aiogram import F, Router, Bot
 from aiogram.exceptions import TelegramAPIError
@@ -13,6 +14,7 @@ from bot.settings import MAX_VIDEO_DURATION, MAX_VIDEO_SIZE
 from bot.states import SwapForm
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 
 @router.message(Command("new"))
@@ -84,7 +86,7 @@ async def wrong_mode_handler(message: Message) -> None:
 
 @router.callback_query(SwapForm.waiting_confirm, F.data.startswith("confirm:"))
 async def confirm_handler(callback: CallbackQuery, state: FSMContext, queue: asyncio.Queue) -> None:
-    """Получает подтверждение на создание дипфейка или отказ"""
+    """Получает подтверждение на создание замены лица или отказ"""
     await callback.answer()
 
     # queue.qsize() + 1 - чтобы избежать гонки сообщений, queue.put(job) вызывается после изменения сообщения
@@ -93,13 +95,13 @@ async def confirm_handler(callback: CallbackQuery, state: FSMContext, queue: asy
                                                     f"Позиция в очереди ожидания: {queue.qsize() + 1}",
                                                     reply_markup=build_start_keyboard())
     except TelegramAPIError as e:
-        print(type(e).__name__, str(e))
+        logger.error("Не удалось отправить сообщение о постановке в очередь : %s", str(e))
         return
 
     try:
         await callback.message.delete()
     except TelegramAPIError as e:
-        print(type(e).__name__, str(e))
+        logger.warning("Не удалось удалить сообщение о подтверждении создания ролика : %s", str(e))
 
     data = await state.get_data()
     await state.clear()

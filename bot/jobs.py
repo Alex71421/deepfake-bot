@@ -1,3 +1,4 @@
+import logging
 import shutil
 import uuid
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from bot.settings import JOBS_DIR
 SOURCE_FILENAME = "source.jpg"
 TARGET_FILENAME = "target.mp4"
 OUTPUT_FILENAME = "result.mp4"
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Job:
@@ -55,4 +57,4 @@ def clean_jobs_dir() -> None:
         if job_dir.is_dir():
             shutil.rmtree(job_dir, ignore_errors=True)
             delete_count += 1
-    print(f"Удалено ненужных папок: {delete_count}")
+    logger.info(f"Удалено ненужных папок: {delete_count}")

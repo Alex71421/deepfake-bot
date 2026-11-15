@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import shutil
 import time
 
@@ -13,6 +14,7 @@ from worker.swap import run_facefusion
 
 FILE_UPLOAD_TIMEOUT = 10 * 60
 UPDATE_PERCENT_TIME = 3
+logger = logging.getLogger(__name__)
 
 
 async def process_queue(bot: Bot, queue: asyncio.Queue) -> None:
@@ -23,13 +25,14 @@ async def process_queue(bot: Bot, queue: asyncio.Queue) -> None:
         try:
             await process_job(bot, job)
         except Exception as e:
-            print(type(e).__name__, str(e))
+            logger.exception("Непредвиденная ошибка при обработке задания")
         finally:
             queue.task_done()
 
 
 async def process_job(bot: Bot, job: Job) -> None:
     """Управляет процессом от взятия задачи в работу до выдачи результата"""
+    logger.info("Задание взято из очереди")
     new_job_path = create_job_dir()
 
     try:
@@ -37,7 +40,7 @@ async def process_job(bot: Bot, job: Job) -> None:
             message = await bot.send_message(job.chat_id, "Скачиваю файлы...")
             job.message_id = message.message_id
         except TelegramAPIError as e:
-            print(type(e).__name__, str(e))
+            logger.error("Не удалось отправить сообщение о загрузке файлов : %s", str(e))
             return
 
         try:
@@ -46,7 +49,7 @@ async def process_job(bot: Bot, job: Job) -> None:
         except (TelegramAPIError, TimeoutError) as e:
             await update_message_text(bot, job.chat_id, job.message_id,
                                       "Не удалось скачать файлы. Попробуй ещё раз: /new")
-            print(e)
+            logger.error("Не удалось скачать файлы : %s",  str(e))
             return
 
         output_path = new_job_path / OUTPUT_FILENAME
@@ -70,7 +73,7 @@ async def process_job(bot: Bot, job: Job) -> None:
             await run_facefusion(source_path, video_path, output_path, face_selector_mode=job.mode,
                                  on_progress=update_progress)
         except (FileNotFoundError, RuntimeError) as e:
-            print(e)
+            logger.error("Процесс обработки видео завершился с ошибкой : %s",  str(e))
             await update_message_text(bot, job.chat_id, job.message_id,
                                       "Не удалось обработать видео. Попробуй ещё раз: /new")
             return
@@ -84,18 +87,19 @@ async def process_job(bot: Bot, job: Job) -> None:
                 request_timeout=FILE_UPLOAD_TIMEOUT,
             )
         except TelegramBadRequest as e:
-            print(type(e).__name__, str(e))
+            logger.error("Телеграм отказал в отправке видео : %s", str(e))
             await update_message_text(bot, job.chat_id, job.message_id, "Telegram отказал в отправке видео")
             return
         except TelegramNetworkError as e:
-            print(type(e).__name__, str(e))
+            logger.error("Отправка видео не уложилась в срок Telegram : %s", str(e))
             await update_message_text(bot, job.chat_id, job.message_id, "Отправка не подтверждена. Видео еще может прийти")
             return
         except TelegramAPIError as e:
-            print(type(e).__name__, str(e))
+            logger.error("Не удалось отправить видео : %s", str(e))
             await update_message_text(bot, job.chat_id, job.message_id, "Не удалось отправить результат")
             return
 
+        logger.info("Видео успешно отправлено пользователю")
         await update_message_text(bot, job.chat_id, job.message_id, "Готово!")
 
     finally:
